@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 
-import ImagePicker from 'react-native-image-picker';
+import ImagePicker from 'RN-imgPicker';
 
 export default class App extends React.Component {
 

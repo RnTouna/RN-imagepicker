@@ -1,35 +1,15 @@
 {
-  "name": "RN-imagepicker",
+  "name": "RN-imgPicker",
   "description": "A React Native module that allows you to use native UI to select media from the device library or directly from the camera",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RnTouna/RN-imagepicker.git"
+    "url": "git+https://github.com/RnTouna/RN-imgPicker.git"
   },
-  "nativePackage": true,
   "author": "kalle",
-  "contributors": [
-    {
-      "name": "kalle",
-      "email": "yuankangle@gmail.com"
-    },
-    {
-      "name": "Matheus Santos",
-      "email": "vorj.dux@gmail.com"
-    },
-    {
-      "name": "Yoann Fuks",
-      "email": "yfuks@student.42.fr"
-    },
-    {
-      "name": "Alexander Ustinov",
-      "email": "rusfearuth@gmail.com"
-    }
-  ],
   "keywords": [
     "react-native",
-    "react-native-image-picker",
     "react",
     "native",
     "image",
