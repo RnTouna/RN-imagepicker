@@ -2,10 +2,10 @@ Pod::Spec.new do |s|
   s.name         = "RN-imagepicker"
   s.version      = "0.14.3"
   s.license      = "MIT"
-  s.homepage     = "https://github.com/RnTouna/RN-imagepicker"
+  s.homepage     = "https://github.com/RnTouna/RN-imgPicker"
   s.authors      = { 'Kalle' => 'yuankangle@gmail.com' }
   s.summary      = "A React Native module that allows you to use the native UIImagePickerController UI to select a photo from the device library or directly from the camera"
-  s.source       = { :git => "https://github.com/RnTouna/RN-imagepicker.git" }
+  s.source       = { :git => "https://github.com/RnTouna/RN-imgPicker.git" }
   s.source_files  = "ios/*.{h,m}"
   
   s.platform     = :ios, "7.0"
