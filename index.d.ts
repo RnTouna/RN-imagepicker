@@ -1,4 +1,4 @@
-declare module "react-native-image-picker" {
+declare module "RN-imgPicker" {
 
     interface Response {
         customButton: string;
