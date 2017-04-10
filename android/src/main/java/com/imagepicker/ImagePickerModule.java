@@ -64,7 +64,7 @@ import com.facebook.react.modules.core.PermissionListener;
 public class ImagePickerModule extends ReactContextBaseJavaModule
         implements ActivityEventListener
 {
-
+  static final int REQUEST_LAUNCH_IMAGE_CROP       = 13005;
   static final int REQUEST_LAUNCH_IMAGE_CAPTURE    = 13001;
   static final int REQUEST_LAUNCH_IMAGE_LIBRARY    = 13002;
   static final int REQUEST_LAUNCH_VIDEO_LIBRARY    = 13003;
@@ -80,6 +80,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
   private Uri cameraCaptureURI;
   private Boolean noData = false;
   private Boolean pickVideo = false;
+  private Boolean allowsEditing = false;
   private int maxWidth = 0;
   private int maxHeight = 0;
   private int quality = 100;
@@ -301,7 +302,8 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
     //robustness code
     if (callback == null || (cameraCaptureURI == null && requestCode == REQUEST_LAUNCH_IMAGE_CAPTURE)
             || (requestCode != REQUEST_LAUNCH_IMAGE_CAPTURE && requestCode != REQUEST_LAUNCH_IMAGE_LIBRARY
-            && requestCode != REQUEST_LAUNCH_VIDEO_LIBRARY && requestCode != REQUEST_LAUNCH_VIDEO_CAPTURE)) {
+            && requestCode != REQUEST_LAUNCH_VIDEO_LIBRARY && requestCode != REQUEST_LAUNCH_VIDEO_CAPTURE
+            && requestCode != REQUEST_LAUNCH_IMAGE_CROP)) {
       return;
     }
 
@@ -319,8 +321,45 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
       case REQUEST_LAUNCH_IMAGE_CAPTURE:
         uri = cameraCaptureURI;
         this.fileScan(uri.getPath());
+        if(allowsEditing) {
+          try {
+            Intent intent = new Intent("com.android.camera.action.CROP");
+            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))), "image/*");
+            intent.putExtra("crop", true);
+            intent.putExtra("aspectX", 1);
+            intent.putExtra("aspectY", 1);
+            intent.putExtra("outputX", 300);
+            intent.putExtra("outputY", 300);
+            intent.putExtra("return-data", true);
+            intent.putExtra("noFaceDetection", true);
+            getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+          return;
+        }
         break;
       case REQUEST_LAUNCH_IMAGE_LIBRARY:
+        uri = data.getData();
+        if(allowsEditing){
+          try {
+            Intent intent = new Intent("com.android.camera.action.CROP");
+            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))),"image/*");
+            intent.putExtra("crop",true);
+            intent.putExtra("aspectX",1);
+            intent.putExtra("aspectY",1);
+            intent.putExtra("outputX",300);
+            intent.putExtra("outputY",300);
+            intent.putExtra("return-data",true);
+            intent.putExtra("noFaceDetection",true);
+            getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+          return;
+        }
+        break;
+      case REQUEST_LAUNCH_IMAGE_CROP:
         uri = data.getData();
         break;
       case REQUEST_LAUNCH_VIDEO_LIBRARY:
@@ -839,6 +878,10 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
       if (storageOptions.hasKey("cameraRoll")) {
         saveToCameraRoll = storageOptions.getBoolean("cameraRoll");
       }
+    }
+    allowsEditing = false;
+    if(options.hasKey("allowsEditing")){
+      allowsEditing = options.getBoolean("allowsEditing");
     }
   }
 
