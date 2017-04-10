@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RnTouna/RN-imagepicker.git"
+    "url": "git+https://github.com/RnTouna/RN-imagepicker.git"
   },
   "nativePackage": true,
   "author": "Marc Shilling (marcshilling)",
