@@ -317,7 +317,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
     }
 
     Uri uri;
-    Uri outUri = Uri.parse("file:///" + Environment.getExternalStorageDirectory().getPath() + "/small.jpg");
+    
     switch (requestCode) {
       case REQUEST_LAUNCH_IMAGE_CAPTURE:
         uri = cameraCaptureURI;
@@ -353,8 +353,6 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
             intent.putExtra("outputY",300);
             intent.putExtra("return-data",true);
             intent.putExtra("noFaceDetection",true);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT,outUri);
-            intent.putExtra("outputFormat",Bitmap.CompressFormat.JPEG.toString());
             getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
           } catch (Exception e) {
             e.printStackTrace();
