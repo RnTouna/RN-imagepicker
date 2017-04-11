@@ -317,6 +317,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
     }
 
     Uri uri;
+    Uri outUri = Uri.parse("file:///" + Environment.getExternalStorageDirectory().getPath() + "/small.jpg");
     switch (requestCode) {
       case REQUEST_LAUNCH_IMAGE_CAPTURE:
         uri = cameraCaptureURI;
@@ -352,6 +353,8 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
             intent.putExtra("outputY",300);
             intent.putExtra("return-data",true);
             intent.putExtra("noFaceDetection",true);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT,outUri);
+            intent.putExtra("outputFormat",Bitmap.CompressFormat.JPEG.toString());
             getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
           } catch (Exception e) {
             e.printStackTrace();
@@ -377,132 +380,154 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
         callback = null;
         return;
       default:
-        uri = null;
+        uri = data.getData();
     }
 
-    String realPath = getRealPathFromURI(uri);
-    boolean isUrl = false;
+    if(uri != null){
+      String realPath = getRealPathFromURI(uri);
+      boolean isUrl = false;
 
-    if (realPath != null) {
-      try {
-        URL url = new URL(realPath);
-        isUrl = true;
-      } catch (MalformedURLException e) {
-        // not a url
+      if (realPath != null) {
+        try {
+          URL url = new URL(realPath);
+          isUrl = true;
+        } catch (MalformedURLException e) {
+          // not a url
+        }
       }
-    }
 
-    // image isn't in memory cache
-    if (realPath == null || isUrl) {
+      // image isn't in memory cache
+      if (realPath == null || isUrl) {
+        try {
+          File file = createFileFromURI(uri);
+          realPath = file.getAbsolutePath();
+          uri = Uri.fromFile(file);
+        } catch (Exception e) {
+          // image not in cache
+          responseHelper.putString("error", "Could not read photo");
+          responseHelper.putString("uri", uri.toString());
+          responseHelper.invokeResponse(callback);
+          callback = null;
+          return;
+        }
+      }
+      int currentRotation = 0;
       try {
-        File file = createFileFromURI(uri);
-        realPath = file.getAbsolutePath();
-        uri = Uri.fromFile(file);
-      } catch (Exception e) {
-        // image not in cache
-        responseHelper.putString("error", "Could not read photo");
-        responseHelper.putString("uri", uri.toString());
-        responseHelper.invokeResponse(callback);
+        ExifInterface exif = new ExifInterface(realPath);
+
+        // extract lat, long, and timestamp and add to the response
+        float[] latlng = new float[2];
+        exif.getLatLong(latlng);
+        float latitude = latlng[0];
+        float longitude = latlng[1];
+        if(latitude != 0f || longitude != 0f) {
+          responseHelper.putDouble("latitude", latitude);
+          responseHelper.putDouble("longitude", longitude);
+        }
+
+        final String timestamp = exif.getAttribute(ExifInterface.TAG_DATETIME);
+        final SimpleDateFormat exifDatetimeFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+
+        final DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+        try {
+          final String isoFormatString = new StringBuilder(isoFormat.format(exifDatetimeFormat.parse(timestamp)))
+                  .append("Z").toString();
+          responseHelper.putString("timestamp", isoFormatString);
+        } catch (Exception e) {}
+
+        int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+        boolean isVertical = true;
+        switch (orientation) {
+          case ExifInterface.ORIENTATION_ROTATE_270:
+            isVertical = false;
+            currentRotation = 270;
+            break;
+          case ExifInterface.ORIENTATION_ROTATE_90:
+            isVertical = false;
+            currentRotation = 90;
+            break;
+          case ExifInterface.ORIENTATION_ROTATE_180:
+            currentRotation = 180;
+            break;
+        }
+        responseHelper.putInt("originalRotation", currentRotation);
+        responseHelper.putBoolean("isVertical", isVertical);
+      } catch (IOException e) {
+        e.printStackTrace();
+        responseHelper.invokeError(callback, e.getMessage());
         callback = null;
         return;
       }
-    }
 
-    int currentRotation = 0;
-    try {
-      ExifInterface exif = new ExifInterface(realPath);
+      BitmapFactory.Options options = new BitmapFactory.Options();
+      options.inJustDecodeBounds = true;
+      BitmapFactory.decodeFile(realPath, options);
+      int initialWidth = options.outWidth;
+      int initialHeight = options.outHeight;
 
-      // extract lat, long, and timestamp and add to the response
-      float[] latlng = new float[2];
-      exif.getLatLong(latlng);
-      float latitude = latlng[0];
-      float longitude = latlng[1];
-      if(latitude != 0f || longitude != 0f) {
-        responseHelper.putDouble("latitude", latitude);
-        responseHelper.putDouble("longitude", longitude);
-      }
-
-      final String timestamp = exif.getAttribute(ExifInterface.TAG_DATETIME);
-      final SimpleDateFormat exifDatetimeFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
-
-      final DateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-      isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-
-      try {
-        final String isoFormatString = new StringBuilder(isoFormat.format(exifDatetimeFormat.parse(timestamp)))
-                .append("Z").toString();
-        responseHelper.putString("timestamp", isoFormatString);
-      } catch (Exception e) {}
-
-      int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-      boolean isVertical = true;
-      switch (orientation) {
-        case ExifInterface.ORIENTATION_ROTATE_270:
-          isVertical = false;
-          currentRotation = 270;
-          break;
-        case ExifInterface.ORIENTATION_ROTATE_90:
-          isVertical = false;
-          currentRotation = 90;
-          break;
-        case ExifInterface.ORIENTATION_ROTATE_180:
-          currentRotation = 180;
-          break;
-      }
-      responseHelper.putInt("originalRotation", currentRotation);
-      responseHelper.putBoolean("isVertical", isVertical);
-    } catch (IOException e) {
-      e.printStackTrace();
-      responseHelper.invokeError(callback, e.getMessage());
-      callback = null;
-      return;
-    }
-
-    BitmapFactory.Options options = new BitmapFactory.Options();
-    options.inJustDecodeBounds = true;
-    BitmapFactory.decodeFile(realPath, options);
-    int initialWidth = options.outWidth;
-    int initialHeight = options.outHeight;
-
-    // don't create a new file if contraint are respected
-    if (((initialWidth < maxWidth && maxWidth > 0) || maxWidth == 0) && ((initialHeight < maxHeight && maxHeight > 0) || maxHeight == 0) && quality == 100 && (rotation == 0 || currentRotation == rotation)) {
-      responseHelper.putInt("width", initialWidth);
-      responseHelper.putInt("height", initialHeight);
-    } else {
-      File resized = getResizedImage(realPath, initialWidth, initialHeight);
-      if (resized == null) {
-        responseHelper.putString("error", "Can't resize the image");
+      // don't create a new file if contraint are respected
+      if (((initialWidth < maxWidth && maxWidth > 0) || maxWidth == 0) && ((initialHeight < maxHeight && maxHeight > 0) || maxHeight == 0) && quality == 100 && (rotation == 0 || currentRotation == rotation)) {
+        responseHelper.putInt("width", initialWidth);
+        responseHelper.putInt("height", initialHeight);
       } else {
-         realPath = resized.getAbsolutePath();
-         uri = Uri.fromFile(resized);
-         BitmapFactory.decodeFile(realPath, options);
-         responseHelper.putInt("width", options.outWidth);
-         responseHelper.putInt("height", options.outHeight);
+        File resized = getResizedImage(realPath, initialWidth, initialHeight);
+        if (resized == null) {
+          responseHelper.putString("error", "Can't resize the image");
+        } else {
+          realPath = resized.getAbsolutePath();
+          uri = Uri.fromFile(resized);
+          BitmapFactory.decodeFile(realPath, options);
+          responseHelper.putInt("width", options.outWidth);
+          responseHelper.putInt("height", options.outHeight);
+        }
       }
-    }
 
-    if (saveToCameraRoll && requestCode == REQUEST_LAUNCH_IMAGE_CAPTURE) {
-      final File oldFile = new File(uri.getPath());
-      final File newDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
-      final File newFile = new File(newDir.getPath(), uri.getLastPathSegment());
+      if (saveToCameraRoll && requestCode == REQUEST_LAUNCH_IMAGE_CAPTURE) {
+        final File oldFile = new File(uri.getPath());
+        final File newDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+        final File newFile = new File(newDir.getPath(), uri.getLastPathSegment());
 
-      try {
-        moveFile(oldFile, newFile);
-        uri = Uri.fromFile(newFile);
-      } catch (IOException e) {
-        e.printStackTrace();
-        responseHelper.putString("error", "Error moving image to camera roll: " + e.getMessage());
+        try {
+          moveFile(oldFile, newFile);
+          uri = Uri.fromFile(newFile);
+        } catch (IOException e) {
+          e.printStackTrace();
+          responseHelper.putString("error", "Error moving image to camera roll: " + e.getMessage());
+        }
       }
+
+      responseHelper.putString("uri", uri.toString());
+      responseHelper.putString("path", realPath);
+
+      if (!noData) {
+        responseHelper.putString("data", getBase64StringFromFile(realPath));
+      }
+
+      putExtraFileInfo(realPath, responseHelper);
+    }else{
+        if (!noData) {
+          try {
+            Bitmap bitmap = (Bitmap) data.getExtras().get("data");
+            File imgFile = new File(Environment.getExternalStorageDirectory().getPath(), "tx.jpg");
+            if(imgFile.exists()){
+              imgFile.delete();
+            }
+            FileOutputStream out = new FileOutputStream(imgFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG,quality,out);
+            out.flush();
+            out.close();
+            responseHelper.putString("uri", Uri.fromFile(imgFile).toString());
+            responseHelper.putString("path", imgFile.getPath());
+            responseHelper.putString("data", getBase64StringFromFile(imgFile.getPath()));
+            putExtraFileInfo(imgFile.getPath(), responseHelper);
+          } catch (Exception e) {
+            responseHelper.putString("error", "Error crop img file: " + e.getMessage());
+          }
+        }
     }
 
-    responseHelper.putString("uri", uri.toString());
-    responseHelper.putString("path", realPath);
-
-    if (!noData) {
-      responseHelper.putString("data", getBase64StringFromFile(realPath));
-    }
-
-    putExtraFileInfo(realPath, responseHelper);
 
     responseHelper.invokeResponse(callback);
     callback = null;
