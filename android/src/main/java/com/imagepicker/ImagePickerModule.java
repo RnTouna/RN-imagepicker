@@ -76,7 +76,7 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
 
   private final ReactApplicationContext reactContext;
   private final int dialogThemeId;
-
+  private Uri cropUri;
   private Callback callback;
   private ReadableMap options;
   private Uri cameraCaptureURI;
@@ -311,6 +311,9 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
       int id = cursor.getInt(cursor
               .getColumnIndex(MediaStore.MediaColumns._ID));
       Uri baseUri = Uri.parse("content://media/external/images/media");
+      if(!cursor.isClosed()){
+        cursor.close();
+      }
       return Uri.withAppendedPath(baseUri, "" + id);
     } else {
       if (imageFile.exists()) {
@@ -344,24 +347,29 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
     }
 
     Uri uri;
-    
+
     switch (requestCode) {
       case REQUEST_LAUNCH_IMAGE_CAPTURE:
         uri = cameraCaptureURI;
         this.fileScan(uri.getPath());
         if(allowsEditing) {
           try {
+            File outFile = createNewFile();
             Intent intent = new Intent("com.android.camera.action.CROP");
-            intent.setDataAndType(getImageContentUri(reactContext,new File(getRealPathFromURI(uri))), "image/*");
+
+            intent.setDataAndType(getImageContentUri(activity,new File(getRealPathFromURI(uri))), "image/*");
 //            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))), "image/*");
             intent.putExtra("crop", true);
             intent.putExtra("aspectX", 1);
             intent.putExtra("aspectY", 1);
             intent.putExtra("outputX", 300);
             intent.putExtra("outputY", 300);
-            intent.putExtra("return-data", true);
+            intent.putExtra("return-data", Build.VERSION.SDK_INT < 24);
             intent.putExtra("noFaceDetection", true);
-            getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
+            cropUri = Uri.fromFile(outFile);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cropUri);
+            intent.putExtra("outputFormat", Bitmap.CompressFormat.JPEG.toString());
+            activity.startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
           } catch (Exception e) {
             e.printStackTrace();
           }
@@ -372,17 +380,21 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
         uri = data.getData();
         if(allowsEditing){
           try {
+            File outFile = createNewFile();
             Intent intent = new Intent("com.android.camera.action.CROP");
-            intent.setDataAndType(getImageContentUri(reactContext,new File(getRealPathFromURI(uri))), "image/*");
+            intent.setDataAndType(getImageContentUri(activity,new File(getRealPathFromURI(uri))), "image/*");
 //            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))),"image/*");
             intent.putExtra("crop",true);
             intent.putExtra("aspectX",1);
             intent.putExtra("aspectY",1);
             intent.putExtra("outputX",300);
             intent.putExtra("outputY",300);
-            intent.putExtra("return-data",true);
+            intent.putExtra("return-data", Build.VERSION.SDK_INT < 24);
             intent.putExtra("noFaceDetection",true);
-            getCurrentActivity().startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
+            cropUri = Uri.fromFile(outFile);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cropUri);
+            intent.putExtra("outputFormat", Bitmap.CompressFormat.JPEG.toString());
+            activity.startActivityForResult(intent, REQUEST_LAUNCH_IMAGE_CROP);
           } catch (Exception e) {
             e.printStackTrace();
           }
@@ -390,7 +402,11 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
         }
         break;
       case REQUEST_LAUNCH_IMAGE_CROP:
-        uri = data.getData();
+        if(data != null && data.getData() != null){
+          uri = data.getData();
+        }else{
+          uri = cropUri;
+        }
         break;
       case REQUEST_LAUNCH_VIDEO_LIBRARY:
         responseHelper.putString("uri", data.getData().toString());
