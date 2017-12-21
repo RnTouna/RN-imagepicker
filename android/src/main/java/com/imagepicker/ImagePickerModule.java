@@ -3,9 +3,11 @@ package com.imagepicker;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
@@ -297,6 +299,31 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
     }
   }
 
+  public static Uri getImageContentUri(Context context, File imageFile) {
+    String filePath = imageFile.getAbsolutePath();
+    Cursor cursor = context.getContentResolver().query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            new String[] { MediaStore.Images.Media._ID },
+            MediaStore.Images.Media.DATA + "=? ",
+            new String[] { filePath }, null);
+
+    if (cursor != null && cursor.moveToFirst()) {
+      int id = cursor.getInt(cursor
+              .getColumnIndex(MediaStore.MediaColumns._ID));
+      Uri baseUri = Uri.parse("content://media/external/images/media");
+      return Uri.withAppendedPath(baseUri, "" + id);
+    } else {
+      if (imageFile.exists()) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DATA, filePath);
+        return context.getContentResolver().insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+      } else {
+        return null;
+      }
+    }
+  }
+
   @Override
   public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
     //robustness code
@@ -325,7 +352,8 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
         if(allowsEditing) {
           try {
             Intent intent = new Intent("com.android.camera.action.CROP");
-            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))), "image/*");
+            intent.setDataAndType(getImageContentUri(reactContext,new File(getRealPathFromURI(uri))), "image/*");
+//            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))), "image/*");
             intent.putExtra("crop", true);
             intent.putExtra("aspectX", 1);
             intent.putExtra("aspectY", 1);
@@ -345,7 +373,8 @@ public class ImagePickerModule extends ReactContextBaseJavaModule
         if(allowsEditing){
           try {
             Intent intent = new Intent("com.android.camera.action.CROP");
-            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))),"image/*");
+            intent.setDataAndType(getImageContentUri(reactContext,new File(getRealPathFromURI(uri))), "image/*");
+//            intent.setDataAndType(Uri.fromFile(new File(getRealPathFromURI(uri))),"image/*");
             intent.putExtra("crop",true);
             intent.putExtra("aspectX",1);
             intent.putExtra("aspectY",1);
